@@ -1,0 +1,38 @@
+#!/bin/bash
+
+NUM_GPIO=2
+
+declare -A LAST_TIMESTAMP
+
+for ((i=0; i<NUM_GPIO; i++))
+do
+    LAST_TIMESTAMP[$i]=0
+done
+
+
+function cleanup {
+    pkill -P $$
+}
+
+trap cleanup SIGINT
+
+for ((i=0; i<NUM_GPIO; i++))
+do
+    (
+        while true
+        do
+            CURRENT_TIMESTAMP=$(od -An -t u8 -N 8 -j 0 "/dev/rpigpio$i")
+
+            if [ -z "$CURRENT_TIMESTAMP" ]; then
+                continue
+            fi
+            TIME_DIFF_MS=$(( ($CURRENT_TIMESTAMP - ${LAST_TIMESTAMP[$i]}) / 1000000 ))
+            CURRENT_TIMESTAMP_MS=$(( $CURRENT_TIMESTAMP / 1000000 ))
+            echo "GPIO $i changed in raw $CURRENT_TIMESTAMP  $CURRENT_TIMESTAMP_MS ms at $TIME_DIFF_MS ms"
+
+            LAST_TIMESTAMP[$i]=$CURRENT_TIMESTAMP
+        done
+    )&
+done
+
+wait
